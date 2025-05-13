@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Trading Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+    }
+    
+    .card {
+      margin-bottom: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .price-up {
+      color: #00c853;
+      font-weight: bold;
+    }
+    
+    .price-down {
+      color: #d50000;
+      font-weight: bold;
+    }
+    
+    .price-flash {
+      animation: flash 1s;
+    }
+    
+    @keyframes flash {
+      0% { background-color: rgba(255, 255, 0, 0.3); }
+      100% { background-color: transparent; }
+    }
+    
+    .log-container {
+      height: 300px;
+      overflow-y: auto;
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #dee2e6;
+      font-family: monospace;
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    
+    .log-time {
+      color: #6c757d;
+    }
+    
+    .log-event {
+      color: #007bff;
+      font-weight: bold;
+    }
+    
+    .chart-container {
+      height: 300px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mb-4">Paper Trading Demo</h1>
+    
+    <div class="row">
+      <!-- Contract Selection -->
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Contract Selection</h5>
+          </div>
+          <div class="card-body">
+            <form id="contractForm">
+              <div class="mb-3">
+                <label for="symbol" class="form-label">Symbol</label>
+                <select class="form-select" id="symbol">
+                  <option value="NIFTY">NIFTY</option>
+                  <option value="BANKNIFTY">BANKNIFTY</option>
+                  <option value="FINNIFTY">FINNIFTY</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="strike" class="form-label">Strike Price</label>
+                <input type="number" class="form-control" id="strike" value="24000">
+              </div>
+              <div class="mb-3">
+                <label for="optionType" class="form-label">Option Type</label>
+                <select class="form-select" id="optionType">
+                  <option value="CE">CE (Call)</option>
+                  <option value="PE">PE (Put)</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="lotSize" class="form-label">Lot Size</label>
+                <input type="number" class="form-control" id="lotSize" value="75">
+              </div>
+              <div class="mb-3">
+                <label for="action" class="form-label">Action</label>
+                <select class="form-select" id="action">
+                  <option value="BUY">BUY</option>
+                  <option value="SELL">SELL</option>
+                </select>
+              </div>
+              <button type="submit" class="btn btn-primary w-100">Create Paper Trade</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Active Trade -->
+      <div class="col-md-8">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Active Trade</h5>
+            <span id="tradeStatus" class="badge bg-secondary">No Active Trade</span>
+          </div>
+          <div class="card-body">
+            <div id="noTradeMessage">
+              <p class="text-center text-muted">No active trade. Create a new paper trade to get started.</p>
+            </div>
+            <div id="tradeDetails" style="display: none;">
+              <div class="row">
+                <div class="col-md-6">
+                  <p><strong>Contract:</strong> <span id="tradeContract"></span></p>
+                  <p><strong>Entry Price:</strong> <span id="entryPrice"></span></p>
+                  <p><strong>Current Price:</strong> <span id="currentPrice"></span></p>
+                  <p><strong>P&L:</strong> <span id="pnl"></span></p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>Lot Size:</strong> <span id="tradeLotSize"></span></p>
+                  <p><strong>Entry Time:</strong> <span id="entryTime"></span></p>
+                  <p><strong>Duration:</strong> <span id="tradeDuration"></span></p>
+                  <p><strong>Token:</strong> <span id="tradeToken"></span></p>
+                </div>
+              </div>
+              <div class="d-grid gap-2">
+                <button id="squareOffBtn" class="btn btn-danger">Square Off Trade</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Price Chart -->
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Price Chart</h5>
+          </div>
+          <div class="card-body">
+            <div id="noChartMessage">
+              <p class="text-center text-muted">No price data available.</p>
+            </div>
+            <canvas id="priceChart" class="chart-container" style="display: none;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Event Log -->
+    <div class="card mt-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Event Log</h5>
+        <button id="clearLogBtn" class="btn btn-sm btn-outline-secondary">Clear Log</button>
+      </div>
+      <div class="card-body">
+        <div id="eventLog" class="log-container"></div>
+      </div>
+    </div>
+    
+    <!-- Closed Trades -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <h5 class="mb-0">Closed Trades</h5>
+      </div>
+      <div class="card-body">
+        <div id="noClosedTradesMessage">
+          <p class="text-center text-muted">No closed trades yet.</p>
+        </div>
+        <div id="closedTradesTable" style="display: none;">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Contract</th>
+                <th>Action</th>
+                <th>Entry Price</th>
+                <th>Exit Price</th>
+                <th>Lot Size</th>
+                <th>P&L</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="closedTradesBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    // Global variables
+    let activeTrade = null;
+    let priceUpdateInterval = null;
+    let priceData = [];
+    let priceChart = null;
+    const closedTrades = [];
+    
+    // DOM elements
+    const contractForm = document.getElementById('contractForm');
+    const tradeStatus = document.getElementById('tradeStatus');
+    const noTradeMessage = document.getElementById('noTradeMessage');
+    const tradeDetails = document.getElementById('tradeDetails');
+    const tradeContract = document.getElementById('tradeContract');
+    const entryPrice = document.getElementById('entryPrice');
+    const currentPrice = document.getElementById('currentPrice');
+    const pnl = document.getElementById('pnl');
+    const tradeLotSize = document.getElementById('tradeLotSize');
+    const entryTime = document.getElementById('entryTime');
+    const tradeDuration = document.getElementById('tradeDuration');
+    const tradeToken = document.getElementById('tradeToken');
+    const squareOffBtn = document.getElementById('squareOffBtn');
+    const eventLog = document.getElementById('eventLog');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+    const noChartMessage = document.getElementById('noChartMessage');
+    const priceChartElement = document.getElementById('priceChart');
+    const noClosedTradesMessage = document.getElementById('noClosedTradesMessage');
+    const closedTradesTable = document.getElementById('closedTradesTable');
+    const closedTradesBody = document.getElementById('closedTradesBody');
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      // Add event listeners
+      contractForm.addEventListener('submit', createTrade);
+      squareOffBtn.addEventListener('click', squareOffTrade);
+      clearLogBtn.addEventListener('click', clearEventLog);
+      
+      // Log initialization
+      addEventLog('Application', 'Initialized');
+    });
+    
+    // Create a new paper trade
+    function createTrade(e) {
+      e.preventDefault();
+      
+      // Check if there's already an active trade
+      if (activeTrade) {
+        if (!confirm('You already have an active trade. Do you want to square it off and create a new one?')) {
+          return;
+        }
+        squareOffTrade();
+      }
+      
+      // Get form values
+      const symbol = document.getElementById('symbol').value;
+      const strike = document.getElementById('strike').value;
+      const optionType = document.getElementById('optionType').value;
+      const lotSize = parseInt(document.getElementById('lotSize').value);
+      const action = document.getElementById('action').value;
+      
+      // Generate a mock token
+      const token = Math.floor(40000 + Math.random() * 10000).toString();
+      
+      // Generate a mock entry price based on strike and option type
+      let mockEntryPrice;
+      if (optionType === 'CE') {
+        // For call options, price decreases as strike increases
+        mockEntryPrice = Math.max(50, 500 - Math.abs(strike - 24000) / 10);
+      } else {
+        // For put options, price increases as strike decreases
+        mockEntryPrice = Math.max(50, 500 - Math.abs(strike - 24000) / 10);
+      }
+      
+      // Create the trade
+      activeTrade = {
+        symbol,
+        strike,
+        optionType,
+        lotSize,
+        action,
+        token,
+        entryPrice: mockEntryPrice,
+        currentPrice: mockEntryPrice,
+        entryTime: new Date(),
+        pnl: 0
+      };
+      
+      // Update UI
+      updateTradeUI();
+      
+      // Start price updates
+      startPriceUpdates();
+      
+      // Log the trade creation
+      addEventLog('Trade Created', {
+        contract: `${symbol} ${strike} ${optionType}`,
+        action,
+        entryPrice: mockEntryPrice.toFixed(2),
+        lotSize,
+        token
+      });
+    }
+    
+    // Square off the active trade
+    function squareOffTrade() {
+      if (!activeTrade) return;
+      
+      // Stop price updates
+      stopPriceUpdates();
+      
+      // Calculate duration
+      const exitTime = new Date();
+      const durationMs = exitTime - activeTrade.entryTime;
+      const durationSeconds = Math.floor(durationMs / 1000);
+      
+      // Create closed trade record
+      const closedTrade = {
+        ...activeTrade,
+        exitPrice: activeTrade.currentPrice,
+        exitTime,
+        duration: durationSeconds,
+        pnl: activeTrade.pnl
+      };
+      
+      closedTrades.push(closedTrade);
+      
+      // Log the square off
+      addEventLog('Trade Squared Off', {
+        contract: `${activeTrade.symbol} ${activeTrade.strike} ${activeTrade.optionType}`,
+        exitPrice: activeTrade.currentPrice.toFixed(2),
+        pnl: activeTrade.pnl.toFixed(2),
+        duration: `${durationSeconds} seconds`
+      });
+      
+      // Clear active trade
+      activeTrade = null;
+      
+      // Update UI
+      updateTradeUI();
+      updateClosedTradesUI();
+    }
+    
+    // Start price updates
+    function startPriceUpdates() {
+      // Clear any existing interval
+      stopPriceUpdates();
+      
+      // Reset price data
+      priceData = [{
+        time: new Date(),
+        price: activeTrade.entryPrice
+      }];
+      
+      // Create chart
+      createPriceChart();
+      
+      // Start interval for price updates
+      priceUpdateInterval = setInterval(() => {
+        if (!activeTrade) return;
+        
+        // Generate random price change (between -1% and +1%)
+        const changePercent = (Math.random() * 2 - 1) * 0.01;
+        const newPrice = activeTrade.currentPrice * (1 + changePercent);
+        
+        // Update active trade
+        activeTrade.currentPrice = newPrice;
+        
+        // Calculate P&L
+        if (activeTrade.action === 'BUY') {
+          activeTrade.pnl = (newPrice - activeTrade.entryPrice) * activeTrade.lotSize;
+        } else {
+          activeTrade.pnl = (activeTrade.entryPrice - newPrice) * activeTrade.lotSize;
+        }
+        
+        // Add to price data
+        priceData.push({
+          time: new Date(),
+          price: newPrice
+        });
+        
+        // Update UI
+        updateTradeUI();
+        updatePriceChart();
+        
+        // Log price update (only log every 5th update to avoid spam)
+        if (priceData.length % 5 === 0) {
+          addEventLog('Price Update', {
+            price: newPrice.toFixed(2),
+            change: (newPrice - activeTrade.entryPrice).toFixed(2),
+            pnl: activeTrade.pnl.toFixed(2)
+          });
+        }
+      }, 1000);
+    }
+    
+    // Stop price updates
+    function stopPriceUpdates() {
+      if (priceUpdateInterval) {
+        clearInterval(priceUpdateInterval);
+        priceUpdateInterval = null;
+      }
+    }
+    
+    // Update trade UI
+    function updateTradeUI() {
+      if (activeTrade) {
+        // Show trade details
+        noTradeMessage.style.display = 'none';
+        tradeDetails.style.display = 'block';
+        tradeStatus.textContent = 'Active';
+        tradeStatus.className = 'badge bg-success';
+        
+        // Update trade details
+        tradeContract.textContent = `${activeTrade.symbol} ${activeTrade.strike} ${activeTrade.optionType}`;
+        entryPrice.textContent = activeTrade.entryPrice.toFixed(2);
+        
+        // Update current price with color and flash effect
+        const priceChange = activeTrade.currentPrice - activeTrade.entryPrice;
+        currentPrice.textContent = activeTrade.currentPrice.toFixed(2);
+        currentPrice.className = priceChange >= 0 ? 'price-up' : 'price-down';
+        currentPrice.classList.add('price-flash');
+        setTimeout(() => currentPrice.classList.remove('price-flash'), 500);
+        
+        // Update P&L
+        pnl.textContent = activeTrade.pnl.toFixed(2);
+        pnl.className = activeTrade.pnl >= 0 ? 'price-up' : 'price-down';
+        
+        // Update other details
+        tradeLotSize.textContent = activeTrade.lotSize;
+        entryTime.textContent = activeTrade.entryTime.toLocaleTimeString();
+        tradeToken.textContent = activeTrade.token;
+        
+        // Update duration
+        const durationMs = new Date() - activeTrade.entryTime;
+        const durationSeconds = Math.floor(durationMs / 1000);
+        tradeDuration.textContent = `${durationSeconds} seconds`;
+      } else {
+        // Hide trade details
+        noTradeMessage.style.display = 'block';
+        tradeDetails.style.display = 'none';
+        tradeStatus.textContent = 'No Active Trade';
+        tradeStatus.className = 'badge bg-secondary';
+        
+        // Hide chart
+        noChartMessage.style.display = 'block';
+        priceChartElement.style.display = 'none';
+      }
+    }
+    
+    // Create price chart
+    function createPriceChart() {
+      if (priceChart) {
+        priceChart.destroy();
+      }
+      
+      noChartMessage.style.display = 'none';
+      priceChartElement.style.display = 'block';
+      
+      const ctx = priceChartElement.getContext('2d');
+      
+      priceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [new Date().toLocaleTimeString()],
+          datasets: [{
+            label: 'Price',
+            data: [activeTrade.entryPrice],
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+            pointRadius: 0,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: false
+            }
+          },
+          animation: {
+            duration: 0
+          }
+        }
+      });
+    }
+    
+    // Update price chart
+    function updatePriceChart() {
+      if (!priceChart || !activeTrade) return;
+      
+      // Get last 30 data points to keep chart readable
+      const recentData = priceData.slice(-30);
+      
+      priceChart.data.labels = recentData.map(d => d.time.toLocaleTimeString());
+      priceChart.data.datasets[0].data = recentData.map(d => d.price);
+      
+      // Change line color based on P&L
+      if (activeTrade.pnl >= 0) {
+        priceChart.data.datasets[0].borderColor = 'rgb(75, 192, 192)';
+      } else {
+        priceChart.data.datasets[0].borderColor = 'rgb(255, 99, 132)';
+      }
+      
+      priceChart.update();
+    }
+    
+    // Update closed trades UI
+    function updateClosedTradesUI() {
+      if (closedTrades.length > 0) {
+        noClosedTradesMessage.style.display = 'none';
+        closedTradesTable.style.display = 'block';
+        
+        // Clear table
+        closedTradesBody.innerHTML = '';
+        
+        // Add rows for each closed trade
+        closedTrades.forEach(trade => {
+          const row = document.createElement('tr');
+          
+          // Calculate P&L class
+          const pnlClass = trade.pnl >= 0 ? 'price-up' : 'price-down';
+          
+          row.innerHTML = `
+            <td>${trade.symbol} ${trade.strike} ${trade.optionType}</td>
+            <td>${trade.action}</td>
+            <td>${trade.entryPrice.toFixed(2)}</td>
+            <td>${trade.exitPrice.toFixed(2)}</td>
+            <td>${trade.lotSize}</td>
+            <td class="${pnlClass}">${trade.pnl.toFixed(2)}</td>
+            <td>${trade.duration} seconds</td>
+          `;
+          
+          closedTradesBody.appendChild(row);
+        });
+      } else {
+        noClosedTradesMessage.style.display = 'block';
+        closedTradesTable.style.display = 'none';
+      }
+    }
+    
+    // Add event to log
+    function addEventLog(event, data) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry';
+      
+      let dataStr;
+      if (typeof data === 'object') {
+        dataStr = JSON.stringify(data);
+      } else {
+        dataStr = data;
+      }
+      
+      logEntry.innerHTML = `
+        <span class="log-time">[${timeStr}]</span>
+        <span class="log-event">${event}</span>: 
+        <span>${dataStr}</span>
+      `;
+      
+      eventLog.appendChild(logEntry);
+      eventLog.scrollTop = eventLog.scrollHeight;
+    }
+    
+    // Clear event log
+    function clearEventLog() {
+      eventLog.innerHTML = '';
+      addEventLog('Log', 'Cleared');
+    }
+  </script>
+</body>
+</html>

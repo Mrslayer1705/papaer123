@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Trading Platform</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <style>
+    :root {
+      --primary-color: #2962ff;
+      --secondary-color: #0039cb;
+      --success-color: #00c853;
+      --danger-color: #d50000;
+      --warning-color: #ffd600;
+      --info-color: #00b0ff;
+      --light-color: #f5f5f5;
+      --dark-color: #212121;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f2f5;
+    }
+    
+    .navbar-brand {
+      font-weight: 700;
+      color: var(--primary-color);
+    }
+    
+    .card {
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      margin-bottom: 20px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .card-header {
+      background-color: white;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+      font-weight: 600;
+      border-radius: 10px 10px 0 0 !important;
+    }
+    
+    .btn-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+    }
+    
+    .btn-primary:hover {
+      background-color: var(--secondary-color);
+      border-color: var(--secondary-color);
+    }
+    
+    .trade-card {
+      margin-bottom: 15px;
+      transition: all 0.3s ease;
+    }
+    
+    .profit {
+      color: var(--success-color);
+      font-weight: bold;
+    }
+    
+    .loss {
+      color: var(--danger-color);
+      font-weight: bold;
+    }
+    
+    .price-update {
+      animation: flash 1s;
+    }
+    
+    @keyframes flash {
+      0% { background-color: rgba(255, 255, 0, 0.5); }
+      100% { background-color: transparent; }
+    }
+    
+    .event-log {
+      height: 300px;
+      overflow-y: auto;
+      background-color: #212529;
+      color: #fff;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+    }
+    
+    .log-time {
+      color: #6c757d;
+    }
+    
+    .log-event {
+      color: #20c997;
+    }
+    
+    .log-data {
+      color: #ffc107;
+    }
+    
+    .dashboard-stats {
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    
+    .stat-label {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <i class="bi bi-graph-up-arrow"></i> Paper Trading Platform
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link active" href="#"><i class="bi bi-house"></i> Dashboard</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#"><i class="bi bi-graph-up"></i> Market</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#"><i class="bi bi-journal-text"></i> Documentation</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#"><i class="bi bi-gear"></i> Settings</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container mt-4">
+    <!-- Dashboard Stats -->
+    <div class="row mb-4">
+      <div class="col-md-3">
+        <div class="card dashboard-stats">
+          <div class="stat-value" id="openTradesCount">0</div>
+          <div class="stat-label">Open Trades</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card dashboard-stats">
+          <div class="stat-value" id="closedTradesCount">0</div>
+          <div class="stat-label">Closed Trades</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card dashboard-stats">
+          <div class="stat-value" id="totalPnL">₹0.00</div>
+          <div class="stat-label">Total P&L</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card dashboard-stats">
+          <div class="stat-value" id="winRate">0%</div>
+          <div class="stat-label">Win Rate</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Tabs -->
+    <ul class="nav nav-tabs" id="mainTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="trades-tab" data-bs-toggle="tab" data-bs-target="#trades" type="button" role="tab">
+          <i class="bi bi-list-ul"></i> Trades
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="new-trade-tab" data-bs-toggle="tab" data-bs-target="#new-trade" type="button" role="tab">
+          <i class="bi bi-plus-circle"></i> New Trade
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events" type="button" role="tab">
+          <i class="bi bi-activity"></i> Events
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="mainTabsContent">
+      <!-- Trades Tab -->
+      <div class="tab-pane fade show active" id="trades" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+          <h4>Active Trades</h4>
+          <div>
+            <button id="refreshTrades" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+          </div>
+        </div>
+        
+        <div id="activeTrades" class="row">
+          <div class="col-12 text-center py-5">
+            <i class="bi bi-info-circle fs-1 text-muted"></i>
+            <p class="mt-3 text-muted">No active trades. Create a new trade to get started.</p>
+          </div>
+        </div>
+        
+        <h4 class="mt-4">Closed Trades</h4>
+        <div id="closedTrades" class="row">
+          <div class="col-12 text-center py-5">
+            <i class="bi bi-info-circle fs-1 text-muted"></i>
+            <p class="mt-3 text-muted">No closed trades yet.</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- New Trade Tab -->
+      <div class="tab-pane fade" id="new-trade" role="tabpanel">
+        <div class="row">
+          <div class="col-md-8 mx-auto">
+            <div class="card mt-3">
+              <div class="card-header">
+                <h5 class="mb-0">Create New Paper Trade</h5>
+              </div>
+              <div class="card-body">
+                <form id="tradeForm">
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="symbol" class="form-label">Symbol</label>
+                      <input type="text" class="form-control" id="symbol" value="NIFTY" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="strike" class="form-label">Strike</label>
+                      <input type="text" class="form-control" id="strike" value="24000" required>
+                    </div>
+                  </div>
+                  
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="optionType" class="form-label">Option Type</label>
+                      <select class="form-select" id="optionType" required>
+                        <option value="CE">CE (Call)</option>
+                        <option value="PE">PE (Put)</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="action" class="form-label">Action</label>
+                      <select class="form-select" id="action" required>
+                        <option value="BUY">BUY</option>
+                        <option value="SELL">SELL</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="lotSize" class="form-label">Lot Size</label>
+                      <input type="number" class="form-control" id="lotSize" value="75" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label for="contractToken" class="form-label">Contract Token</label>
+                      <input type="text" class="form-control" id="contractToken" value="43854" required>
+                    </div>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="expiry" class="form-label">Expiry Date</label>
+                    <input type="date" class="form-control" id="expiry" required>
+                  </div>
+                  
+                  <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                      <i class="bi bi-plus-circle"></i> Create Trade
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Events Tab -->
+      <div class="tab-pane fade" id="events" role="tabpanel">
+        <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
+          <h4>WebSocket Events</h4>
+          <button id="clearLog" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-trash"></i> Clear Log
+          </button>
+        </div>
+        <div id="eventLog" class="event-log"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trade Card Template -->
+  <template id="tradeCardTemplate">
+    <div class="col-md-6 col-lg-4 mb-4">
+      <div class="card trade-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="trade-symbol mb-0"></h6>
+          <span class="badge"></span>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-2">
+            <span>Entry Price:</span>
+            <span class="entry-price"></span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span>Current Price:</span>
+            <span class="current-price"></span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span>P&L:</span>
+            <span class="pnl"></span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span>Lot Size:</span>
+            <span class="lot-size"></span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span>Entry Time:</span>
+            <span class="entry-time"></span>
+          </div>
+          <div class="exit-details" style="display: none;">
+            <div class="d-flex justify-content-between mb-2">
+              <span>Exit Price:</span>
+              <span class="exit-price"></span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+              <span>Exit Time:</span>
+              <span class="exit-time"></span>
+            </div>
+          </div>
+          <div class="square-off-btn-container">
+            <button class="btn btn-danger w-100 square-off-btn">
+              <i class="bi bi-x-circle"></i> Square Off
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Footer -->
+  <footer class="text-center mt-5 py-3 bg-white">
+    <div class="container">
+      <p class="mb-0">© 2023 Paper Trading Platform. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
